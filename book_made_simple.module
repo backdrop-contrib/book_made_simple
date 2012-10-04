@@ -509,7 +509,7 @@ function book_made_simple_link($type, $node = null, $teaser = false) {
     foreach ($atypes as $allowed_type => $allowed_name) {
       $atype  = node_type_get_type($allowed_name);
       if (is_object($atype) && node_access('create', $atype->type)) {
-        $allowedTypes[str_replace("_", "-", $atype->type)] = $atype->name;
+        $allowed_types[str_replace("_", "-", $atype->type)] = $atype->name;
       }
     }
     // Invoke hook filter_allowed_types_list.
@@ -523,14 +523,9 @@ function book_made_simple_link($type, $node = null, $teaser = false) {
     if (count($allowed_types) > 0) {
       asort($allowed_types, SORT_STRING);
       if ($style == "LI") {
-        foreach ($allowedTypes as $type => $name ) {
+        foreach ($allowed_types as $type => $name ) {
           $query = array("parent" => $node->book['mlid']);
-          if (module_exists('og') && module_exists('og_context')) {
-            $group_node = og_context_determine_context((function_exists('og_get_group_ids') ? null : 'node'));
-            if ($group_node && og_is_member($group_node)) {
-              $query['gids[]'] =  $group_node->nid;
-            }
-          }
+          book_made_simple_og_manager($query);
           $links['book_made_simple_' . $type] = array(
             'title' => t('Add !content-type', array('!content-type' => t($name))),
             'href' => "node/add/" . $type,
@@ -553,6 +548,26 @@ function book_made_simple_link($type, $node = null, $teaser = false) {
     }
   }
   return $links;
+}
+
+/**
+ *Add gids[] param in url for Organic Group managenement
+ **/ 
+function book_made_simple_og_manager(&$query) {
+  if (module_exists('og') && module_exists('og_context')) {
+     $og_is_v1 = function_exists('og_get_group_ids'); 
+     $group_node = og_context_determine_context(($og_is_v1 ? null : 'node'));
+     if ($group_node) {
+        if (($og_is_v1 && og_is_member($group_node)) || (! $og_is_v1 && og_is_member($group_node, $group_node->nid))) {
+          if (is_array($query)) {
+            $query['gids[]'] =  $group_node->nid;
+          }
+          else {
+            $query .= '&gids[]=' . $group_node->nid;
+          }
+        }
+     }
+  }
 }
 
 /**
@@ -608,12 +623,7 @@ function book_made_simple_add_child_book_content_types_ddlist($allowed_types, &$
     $op = "?";
   }
   $new_url =  $url . "\" + this.value + \"" . $op . "parent=" . $node->book["mlid"];
-  if (module_exists('og') && module_exists('og_context')) {
-    $group_node = og_context_determine_context((function_exists('og_get_group_ids') ? null : 'node'));
-    if ($group_node && og_is_member($group_node)) {
-      $new_url .= '&gids[]=' . $group_node->nid;
-    }
-  }
+  book_made_simple_og_manager($new_url);
   return "<select onchange='location.href=\"" . $new_url . "\"'>$html</select>";
 }
 
