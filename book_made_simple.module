@@ -556,14 +556,23 @@ function book_made_simple_link($type, $node = null, $teaser = false) {
 function book_made_simple_og_manager(&$query) {
   if (module_exists('og') && module_exists('og_context')) {
      $og_is_v1 = function_exists('og_get_group_ids'); 
-     $group_node = og_context_determine_context(($og_is_v1 ? null : 'node'));
+     $group_node = og_context_determine_context($og_is_v1 ? null : 'node');
      if ($group_node) {
-        if (($og_is_v1 && og_is_member($group_node)) || (! $og_is_v1 && og_is_member($group_node, $group_node->nid))) {
+         $nid = false;
+         if ($og_is_v1 && og_is_member($group_node)) {
+             $nid = $group_node->nid;
+         }
+         // V2 OG Version
+         if (!$og_is_v1 && og_is_member('node', $group_node)) {
+            $nid = $group_node; 
+         }
+        
+        if ($nid !== FALSE) {
           if (is_array($query)) {
-            $query['gids[]'] =  $group_node->nid;
+            $query['gids[]'] =  $nid;
           }
           else {
-            $query .= '&gids[]=' . $group_node->nid;
+            $query .= '&gids[]=' . $nid;
           }
         }
      }
