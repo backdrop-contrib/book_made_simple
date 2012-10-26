@@ -274,6 +274,11 @@ function book_made_simple_form_alter(&$form, &$form_state, $form_id) {
           $form_state['process_input'] = FALSE;
           return;
         }
+        if (! book_made_simple_creator_only_access($parentNode)) {
+					$form = _book_made_simple_print_error("Only book creator can add child pages",$form['#id']);
+					$form_state['process_input'] = FALSE;
+          return;
+        }
       }
     }
     //3 : show/hide Outline section
@@ -392,6 +397,15 @@ function book_made_simple_form_alter(&$form, &$form_state, $form_id) {
         '#default_value' => $default,
         '#description' => t('Checked will prevent this content type be created outside a book.'),
       );
+		  $varTypes = variable_get('book_made_simple_only_creator', array());
+		  $default = (array_key_exists($type, $varTypes) && $varTypes[$type] != "0");
+		  $form['book_made_simple']['3']['book_made_simple_only_creator'] = array(
+		    '#type' => 'checkbox',
+		    '#title' => t('Only creator can add child pages'),
+		    '#default_value' => $default,
+		    '#description' => t('Checked will prevent other users than creator to add child pages.'),
+		  );
+      
       $varTypes = variable_get('book_made_simple_add_types', array());
       $default = (array_key_exists($type, $varTypes) && $varTypes[$type] != "0");
       $form['book_made_simple']['3']['book_made_simple_add_types'] = array(
@@ -433,6 +447,19 @@ function book_made_simple_form_submit($form, &$form_state) {
     unset($types[$type]);
   }
   variable_set('book_made_simple_only_on_books', $types);
+  
+  $text = $values["book_made_simple_only_creator"];
+	$type = $values["type"];
+	$types = variable_get('book_made_simple_only_creator', array());
+	if ($text != "0")
+	{
+		$types[$type]= $type;
+	}
+	else {
+		unset($types[$type]);
+	}
+	variable_set('book_made_simple_only_creator', $types);  
+  
   $text = $values["book_made_simple_forbid_main_page_creation"];
   $type = $values["type"];
   variable_del("book_made_simple_forbid_main_page_creation_" . $type);
@@ -498,6 +525,9 @@ function book_made_simple_link($type, $node = null, $teaser = false) {
   if (isset($node->in_preview)) return $links;
   $max_depth = variable_get('book_made_simple_limit_depth', 99);
   if ($type == 'node' && !$teaser && isset($node->book["bid"]) && user_access('add content to books') && $node->status == 1 && $node->book['depth'] < $max_depth) {
+
+    if (! book_made_simple_creator_only_access($node)) {return $links;}
+
     $html = "";
     $allowed_types = array();
     // Search for content-type for this one.
@@ -755,4 +785,21 @@ function _book_made_simple_print_error($message, $form_id) {
     '#markup' => t($message),
   );
   return $form;
+}
+
+function book_made_simple_creator_only_access($node) {
+
+  global $user;
+  $main_node = $node;
+  if ($node->nid != $node->book['bid']) {
+    $main = book_link_load($node->book["p1"]);
+    if (isset($main))
+		{
+        $main_node = node_load($main['nid']);
+    }
+  }
+  $creator_only = array_key_exists($main_node->type, variable_get("book_made_simple_only_creator",array()));
+  if ($creator_only && $user->uid != 1 && $user->uid != $main_node->uid ) {return false;}
+  return true;
+
 }
