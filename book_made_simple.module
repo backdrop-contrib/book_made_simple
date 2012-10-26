@@ -247,8 +247,8 @@ function book_made_simple_form_alter(&$form, &$form_state, $form_id) {
       //$form['book']['bid']['#default_value'] = 0;
       $nid = empty($node->nid) ? 'new' : $node->nid;
       unset($form['book']['bid']['#options'][$nid]);
-      $form['#node']->nid = isset($form['#node']->nid) ? $form['#node']->nid : '0';
-      $form['#node']->book['original_bid'] = $form['#node']->nid;
+      $nid = isset($form['#node']->nid) ? $form['#node']->nid : '0';
+      $form['#node']->book['original_bid'] = $nid;
     }
     $isOnlyForBook = array_key_exists($type, variable_get("book_made_simple_only_on_books", array()));
     if ($isOnlyForBook) {
@@ -495,6 +495,7 @@ function book_made_simple_form_submit($form, &$form_state) {
  */
 function book_made_simple_link($type, $node = null, $teaser = false) {
   $links = array();
+  if (isset($node->in_preview)) return $links;
   $max_depth = variable_get('book_made_simple_limit_depth', 99);
   if ($type == 'node' && !$teaser && isset($node->book["bid"]) && user_access('add content to books') && $node->status == 1 && $node->book['depth'] < $max_depth) {
     $html = "";
