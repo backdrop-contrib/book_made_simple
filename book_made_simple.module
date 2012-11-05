@@ -70,8 +70,9 @@ function book_made_simple_menu() {
     'title' => 'Outline',
     'page callback' => 'book_outline',
     'page arguments' => array(1),
-    //'access callback' => 'is_outline_access',
-    'access arguments' => array("show core Outline tab"),
+    'access callback' => 'is_outline_access',
+    'access arguments' => array(1),
+    //'access arguments' => array("show core Outline tab"),
     'type' => MENU_LOCAL_TASK,
     'weight' => 10  ,
     'file' => 'book.pages.inc',
@@ -93,7 +94,7 @@ function is_outline_access($node = NULL) {
   if (null != $bookType && $bookType != "0" && $node->book['plid'] == 0) {
     $access = false;
   }
-  return $access && user_access("show core Outline form element");
+  return $access && user_access("show core Outline tab") && book_made_simple_creator_only_access($node);
 }
 
 /**
@@ -101,7 +102,7 @@ function is_outline_access($node = NULL) {
  */
 function is_reorder_access($node = NULL) {
   if (isset($node->book) && $node->book['bid'] > 0) {
-    if (! _book_outline_access($node) || ! user_access('show book reorder tab')) {
+    if (! _book_outline_access($node) || ! user_access('show book reorder tab') || ! book_made_simple_creator_only_access($node)) {
       return false;
     }
     // Cheching permissions according to rules/
