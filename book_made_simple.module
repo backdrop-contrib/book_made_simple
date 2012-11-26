@@ -792,6 +792,7 @@ function book_made_simple_creator_only_access($node) {
 
   global $user;
   $main_node = $node;
+  if (! isset($node->book)) return true; 
   if ($node->nid != $node->book['bid']) {
     $main = book_link_load($node->book["p1"]);
     if (isset($main))
