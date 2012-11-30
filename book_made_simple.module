@@ -31,6 +31,7 @@ function book_made_simple_init() {
  */
 function book_made_simple_permission() {
   return array(
+    'administer books' => array("title" => t("User will have all rights on books")),
     'show book reorder tab' => array("title" => t("Show (checked) or hide (unchecked) core book reorder tab")),
     'show core Outline tab' => array("title" => t("Show (checked) or hide (unchecked) core Outline tab")),
     'show core Outline form element' => array("title" => t("Show (checked) or hide (unchecked) outline section in form elements.")),
@@ -61,7 +62,7 @@ function book_made_simple_menu() {
     'title' => t('Reorder the book'),
     'page callback' => 'book_made_simple_reorder',
     'page arguments' => array(1),
-    'access callback' => 'is_reorder_access',
+    'access callback' => 'book_made_simple_is_reorder_access',
     'access arguments' => array(1),
     'type' => MENU_LOCAL_TASK,
     'weight' => 2,
@@ -70,7 +71,7 @@ function book_made_simple_menu() {
     'title' => 'Outline',
     'page callback' => 'book_outline',
     'page arguments' => array(1),
-    'access callback' => 'is_outline_access',
+    'access callback' => 'book_made_simple_is_outline_access',
     'access arguments' => array(1),
     //'access arguments' => array("show core Outline tab"),
     'type' => MENU_LOCAL_TASK,
@@ -84,7 +85,8 @@ function book_made_simple_menu() {
 /**
  * Access callback for book outline tab.
  */
-function is_outline_access($node = NULL) {
+function book_made_simple_is_outline_access($node = NULL) {
+  if (user_access('administer books')) return true;
   if (isset($node->nid) && ! (user_access('add content to books') || user_access('administer book outlines'))) {
     return false;
   }
@@ -100,7 +102,8 @@ function is_outline_access($node = NULL) {
 /**
  * Returns access rights for book.
  */
-function is_reorder_access($node = NULL) {
+function book_made_simple_is_reorder_access($node = NULL) {
+  if (user_access('administer books')) return true;
   if (isset($node->book) && $node->book['bid'] > 0) {
     if (! _book_outline_access($node) || ! user_access('show book reorder tab') || ! book_made_simple_creator_only_access($node)) {
       return false;
@@ -253,7 +256,7 @@ function book_made_simple_form_alter(&$form, &$form_state, $form_id) {
     }
     $isOnlyForBook = array_key_exists($type, variable_get("book_made_simple_only_on_books", array()));
     if ($isOnlyForBook) {
-      if (arg(1) == "add" && ! array_key_exists("parent", $_GET) && !is_outline_access($form['#node'])) {
+      if (arg(1) == "add" && ! array_key_exists("parent", $_GET) && !book_made_simple_is_outline_access($form['#node'])) {
         $form = _book_made_simple_print_error("This type can't be created outside a book", $form['#id']);
         $form_state['process_input'] = FALSE;
         return;
@@ -284,8 +287,8 @@ function book_made_simple_form_alter(&$form, &$form_state, $form_id) {
     }
     //3 : show/hide Outline section
     $book = $node->book;
-    if (is_outline_access($node)) {
-      if (isset($node->nid) && is_reorder_access($node)) {
+    if (book_made_simple_is_outline_access($node)) {
+      if (isset($node->nid) && book_made_simple_is_reorder_access($node)) {
         $form['book']['reorder'] = array(
           '#type' => 'item',
           '#markup' => l(t("Reorder the book"), "admin/content/book/" . $book['bid'], array('query' => array("destination" => "node/" . $node->nid))),
@@ -791,9 +794,11 @@ function _book_made_simple_print_error($message, $form_id) {
 function book_made_simple_creator_only_access($node) {
 
   global $user;
+  if (user_access('administer books')) return true;
+  
   $main_node = $node;
-  if (! isset($node->book)) return true; 
-  if ($node->nid != $node->book['bid']) {
+  if (! isset($node->nid) || ! isset($node->book)) {return true;} 
+    if ($node->nid != $node->book['bid']) {
     $main = book_link_load($node->book["p1"]);
     if (isset($main))
 		{
