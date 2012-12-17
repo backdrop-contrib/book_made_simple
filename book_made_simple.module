@@ -547,13 +547,8 @@ function book_made_simple_link($type, $node = null, $teaser = false) {
         $allowed_types[str_replace("_", "-", $atype->type)] = $atype->name;
       }
     }
-    // Invoke hook filter_allowed_types_list.
-    foreach (module_implements('filter_allowed_types_list') as $module) {
-      $function = $module . '_filter_allowed_types_list';
-      if (function_exists($function)) {
-        $function($allowed_types);
-      }
-    }
+    // Alter list if desired
+    drupal_alter('book_made_simple_allowed_types_list', $allowedTypes); 
     $book_link = $node->book;
     if (count($allowed_types) > 0) {
       asort($allowed_types, SORT_STRING);
