@@ -571,7 +571,7 @@ function book_made_simple_link($type, $node = null, $teaser = false) {
       }
       else {
         $links['book_made_simple'] = array(
-          'title' => theme('add_child_book_content_types', $allowed_types, $node),
+          'title' => theme('add_child_book_content_types', array('allowed_types' => $allowedTypes, 'node' => $node)),
           'html' => true,
         );
       }
@@ -616,7 +616,7 @@ function book_made_simple_theme() {
   return array(
     'add_child_book_content_types' => array(
       'variables' => array(
-        'allowedTypes' => NULL,
+        'allowed_types' => NULL,
         "node" => null,
       ),
     ),
@@ -624,7 +624,7 @@ function book_made_simple_theme() {
 }
 
 /**
- * Themeable function to display alloawed child types of book.
+ * Themeable function to display allowed child types of book.
  *
  * @param $allowedTypes
  *   Array of allowed child type.
@@ -633,7 +633,9 @@ function book_made_simple_theme() {
  * @return
  *   Html code to display allowed child type
  */
-function theme_add_child_book_content_types($allowedTypes, $node) {
+function theme_add_child_book_content_types($variables) {
+  $allowed_types = $variables['allowed_types'];
+  $node = $variables['node'];
   // TODO Number of parameters in this theme funcion does not match number of parameters found in hook_theme.
   return "";
 }
