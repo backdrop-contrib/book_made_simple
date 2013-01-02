@@ -67,6 +67,7 @@ function book_made_simple_menu() {
     'type' => MENU_LOCAL_TASK,
     'weight' => 2,
   );
+  /*
   $items['node/%node/outline'] = array(
     'title' => 'Outline',
     'page callback' => 'book_outline',
@@ -79,6 +80,7 @@ function book_made_simple_menu() {
     'file' => 'book.pages.inc',
     'file path' => drupal_get_path('module', 'book'),
   );
+  */
   return $items;
 }
 
@@ -741,13 +743,12 @@ function book_made_simple_node_view_alter(&$build) {
 }
 
 /**
- * Implements hook_theme_registry_alter().
+ * Implements hook_menu_alter().
  */
-function book_made_simple_theme_registry_alter(&$theme_registry) {
-  global $theme;
-  $theme_registry['BMS'] = array('menu_local_task' => $theme_registry['menu_local_task']);
-  // Replace them with our own. These will "preprocess" and call the real functions.
-  $theme_registry['menu_local_task']['function'] = 'book_made_simple_theme_menu_item_link';
+function book_made_simple_menu_alter(&$items) {
+  if (isset($items['node/%node/outline'])) {
+    $items['node/%node/outline']['access callback'] = 'is_outline_access';
+  }
 }
 
 /**
