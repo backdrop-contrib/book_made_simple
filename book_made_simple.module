@@ -105,8 +105,8 @@ function book_made_simple_is_outline_access($node = NULL) {
  * Returns access rights for book.
  */
 function book_made_simple_is_reorder_access($node = NULL) {
-  if (user_access('administer books')) return true;
   if (isset($node->book) && $node->book['bid'] > 0) {
+    if (user_access('administer books')) return true;
     if (! _book_outline_access($node) || ! user_access('show book reorder tab') || ! book_made_simple_creator_only_access($node)) {
       return false;
     }
@@ -747,7 +747,7 @@ function book_made_simple_node_view_alter(&$build) {
  */
 function book_made_simple_menu_alter(&$items) {
   if (isset($items['node/%node/outline'])) {
-    $items['node/%node/outline']['access callback'] = 'is_outline_access';
+    $items['node/%node/outline']['access callback'] = 'book_made_simple_is_outline_access';
   }
 }
 
