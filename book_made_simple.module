@@ -246,9 +246,10 @@ function book_made_simple_form_alter(&$form, &$form_state, $form_id) {
     if (! isset($node->book)) {
       return;
     }
+    $book = $node->book;
     // 1 : Main page book. Verify if not forbidden
     $isMainForbidden = (array_key_exists($type, variable_get('book_made_simple_forbid_main_page_creation', array())));
-    $isForbidden = ($isMainForbidden && $node->book['bid'] == 0);
+    $isForbidden = ($isMainForbidden && $book['bid'] == 0);
     if ($isMainForbidden   && $user->uid != 1) {
       //$form['book']['bid']['#default_value'] = 0;
       $nid = empty($node->nid) ? 'new' : $node->nid;
@@ -258,19 +259,20 @@ function book_made_simple_form_alter(&$form, &$form_state, $form_id) {
     }
     $isOnlyForBook = array_key_exists($type, variable_get("book_made_simple_only_on_books", array()));
     if ($isOnlyForBook) {
-      if (arg(1) == "add" && ! array_key_exists("parent", $_GET) && !book_made_simple_is_outline_access($form['#node'])) {
+      if ($book['nid'] == "new" && ! empty($book["plid"]) && !book_made_simple_is_outline_access($form['#node'])) {
         $form = _book_made_simple_print_error("This type can't be created outside a book", $form['#id']);
         $form_state['process_input'] = FALSE;
         return;
       }
       // Remove <none> from book list
       else {
-      			unset($form['book']['bid']['#options'][0]);
+      	unset($form['book']['bid']['#options'][0]);
       }
     }
     // 2 : Add child page : Verify if parent allowed
-    if (arg(1) == "add" && array_key_exists("parent", $_GET)) {
-      $parent = book_link_load($_GET['parent']);
+    //if (arg(1) == "add" && array_key_exists("parent", $_GET)) {
+    if ($book['nid'] == "new" && ! empty($book["plid"])) {
+      $parent = book_link_load($node->book["plid"]);
       if (isset($parent)) {
         $parentNode = node_load($parent['nid']);
         $parentType = $parentNode->type;
@@ -281,14 +283,13 @@ function book_made_simple_form_alter(&$form, &$form_state, $form_id) {
           return;
         }
         if (! book_made_simple_creator_only_access($parentNode)) {
-					$form = _book_made_simple_print_error("Only book creator can add child pages",$form['#id']);
-					$form_state['process_input'] = FALSE;
+			$form = _book_made_simple_print_error("Only book creator can add child pages",$form['#id']);
+			$form_state['process_input'] = FALSE;
           return;
         }
       }
     }
     //3 : show/hide Outline section
-    $book = $node->book;
     if (book_made_simple_is_outline_access($node)) {
       if (isset($node->nid) && book_made_simple_is_reorder_access($node)) {
         $form['book']['reorder'] = array(
@@ -806,5 +807,20 @@ function book_made_simple_creator_only_access($node) {
   $creator_only = array_key_exists($main_node->type, variable_get("book_made_simple_only_creator",array()));
   if ($creator_only && $user->uid != 1 && $user->uid != $main_node->uid ) {return false;}
   return true;
+
+}
+
+/**
+ * Implements hook new_book_object_alter from Outline Designer
+ * @param unknown $node
+ */
+function book_made_simple_new_book_object_alter(&$node) {
+    $form = array("#node_edit_form" => "dff", "#node" => $node);
+    $form['type']['#value'] = $node->type;
+    $form_state['process_input'] = TRUE;
+    book_made_simple_form_alter($form, $form_state,"");
+    if ($form_state['process_input'] == FALSE) {
+        $node = null;
+    }
 
 }
