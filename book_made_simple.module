@@ -271,9 +271,9 @@ function book_made_simple_form_alter(&$form, &$form_state, $form_id) {
     }
     // 2 : Add child page : Verify if parent allowed
     //if (arg(1) == "add" && array_key_exists("parent", $_GET)) {
-    if ($book['nid'] == "new" && ! empty($book["plid"])) {
+    if ($book['nid'] == "new" && ! empty($book["plid"]) && $book['plid'] > 0) {
       $parent = book_link_load($node->book["plid"]);
-      if (isset($parent)) {
+      if ($parent) {
         $parentNode = node_load($parent['nid']);
         $parentType = $parentNode->type;
         $allowedChilds = variable_get('book_made_simple_for_type_' . $parentType, array());
@@ -675,7 +675,7 @@ function book_made_simple_add_child_book_content_types_ddlist($allowed_types, &$
  * Implements hook_node_insert().
  */
 function book_made_simple_node_insert($node) {
-  if (empty($node->book["bid"])) {
+  if (isset($node->book) && empty($node->book["bid"])) {
     $type = $node->type;
     $max_depth = variable_get('book_made_simple_limit_depth', 99);
     $isDepthAllowed = true;
