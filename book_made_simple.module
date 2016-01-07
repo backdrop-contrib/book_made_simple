@@ -531,7 +531,7 @@ function book_made_simple_link($type, $node = null, $teaser = false) {
   $links = array();
   if (isset($node->in_preview)) return $links;
   $max_depth = variable_get('book_made_simple_limit_depth', 99);
-  if ($type == 'node' && !$teaser && isset($node->book["bid"]) && user_access('add content to books') && $node->status == 1 && $node->book['depth'] < $max_depth) {
+  if ($type == 'node' && !$teaser && isset($node->book["bid"]) && user_access('add content to books') && $node->status == 1 && (isset($node->book['depth']) ? $node->book['depth'] : 0) < $max_depth) {
 
     if (! book_made_simple_creator_only_access($node)) {return $links;}
 
