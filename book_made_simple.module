@@ -530,13 +530,13 @@ function theme_add_child_book_content_types($variables = []) {
   $allowed_types = (!empty($variables['allowed_types'])) ? $variables['allowed_types'] : [];
   $node = !empty($variables['node']) ? $variables['node'] : new Node();
   if (!empty($node->book)) {
-    $output .= '<p>Add child: ';
+    $output .= '<span>Add child: ';
     foreach ($allowed_types as $type => $name) {
       $query = array("parent" => $node->book['mlid']);
       book_made_simple_og_manager($query);
       $output .= l(t($name), "node/add/" . $type, array('query' => $query)) . " ";
     }
-    $output .= '</p>';
+    $output .= '</span>';
   }
   return $output;
 }
