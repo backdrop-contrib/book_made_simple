@@ -1,0 +1,12 @@
+@media (min-width: 768px) {
+	#edit-book-made-simple-content-types {
+		& > .details-child-wrapper {
+			display: flex;
+			gap: 1.5rem;
+
+			& > .form-item {
+				flex-basis: 50%;
+			}
+		}
+	}
+}

@@ -1,29 +1,18 @@
 <?php
 /**
  * @file
- * Automaticly creats a book and simple creation of child pages.
- * Author: M. Morin
+ * Automatically creates a book and simple creation of child pages.
  */
 
-/**
- * Implements hook_help().
- */
-function book_made_simple_help($path, $arg) {
-  switch ($path) {
-    case 'admin/config/book_made_simple':
-      $output = t('On this page you can define context-types allowed as children of book and those that will be automatically created as main book pages.<br/>You can also define child pages by content-type in !content-type-settings in the BookMadeSimple section', array('!content-type-settings' => l(t('content type settings'), 'admin/structure/types/list')));
-      return $output;
-      break;
-  }
-}
-
-/**
- * Implements hook_init().
- */
-function book_made_simple_init() {
-  if (! variable_get('book_made_simple_admin_use_css', false)) {
-    drupal_add_css(drupal_get_path('module', 'book_made_simple') . '/book_made_simple.css');
-  }
+ /**
+  * Implements hook_config_info().
+  */
+function book_made_simple_config_info() {
+  $prefixes['book_made_simple.settings'] = array(
+    'label' => t('BookMadeSimple settings'),
+    'group' => 'Configuration',
+  );
+  return $prefixes;
 }
 
 /**
@@ -31,29 +20,30 @@ function book_made_simple_init() {
  */
 function book_made_simple_permission() {
   return array(
-    'administer books' => array("title" => t("User will have all rights on books")),
-    'show book reorder tab' => array("title" => t("Show (checked) or hide (unchecked) core book reorder tab")),
-    'show core Outline tab' => array("title" => t("Show (checked) or hide (unchecked) core Outline tab")),
-    'show core Outline form element' => array("title" => t("Show (checked) or hide (unchecked) outline section in form elements.")),
+    'administer books' => array(
+      'title' => t("User will have all rights on books",
+      )),
+    'show book reorder tab' => array(
+      'title' => t("Show core book reorder tab"),
+    ),
+    'show core Outline tab' => array(
+      'title' => t("Show core Outline tab"),
+    ),
+    'show core Outline form element' => array(
+      'title' => t("Show outline section in form elements."),
+    ),
   );
 }
 
 /**
- * Implementats hook_menu().
+ * Implements hook_menu().
  */
 function book_made_simple_menu() {
   $items = array();
-  $items['admin/config/book_made_simple'] = array(
+  $items['admin/config/content/book_made_simple'] = array(
     'title' => 'BookMadeSimple',
-    'description' => 'book_made_simple settings.',
-    'position' => 'right',
-    'weight' => -10,
-    'access arguments' => array('access administration pages'),
-  );
-  $items['admin/config/book_made_simple/config'] = array(
-    'title' => 'BookMadeSimple Configuration.',
     'description' => 'Configuration of BookMadeSimple module',
-    'page callback' => 'drupal_get_form',
+    'page callback' => 'backdrop_get_form',
     'page arguments' => array('book_made_simple_settings_form'),
     'access arguments' => array('administer site configuration'),
     'weight' => -10,
@@ -67,20 +57,6 @@ function book_made_simple_menu() {
     'type' => MENU_LOCAL_TASK,
     'weight' => 2,
   );
-  /*
-  $items['node/%node/outline'] = array(
-    'title' => 'Outline',
-    'page callback' => 'book_outline',
-    'page arguments' => array(1),
-    'access callback' => 'book_made_simple_is_outline_access',
-    'access arguments' => array(1),
-    //'access arguments' => array("show core Outline tab"),
-    'type' => MENU_LOCAL_TASK,
-    'weight' => 10  ,
-    'file' => 'book.pages.inc',
-    'file path' => drupal_get_path('module', 'book'),
-  );
-  */
   return $items;
 }
 
@@ -88,119 +64,110 @@ function book_made_simple_menu() {
  * Access callback for book outline tab.
  */
 function book_made_simple_is_outline_access($node = NULL) {
-  if (user_access('administer books')) return true;
+  if (user_access('administer books')) return TRUE;
   if (isset($node->nid) && ! (user_access('add content to books') || user_access('administer book outlines'))) {
-    return false;
+    return FALSE;
   }
-  $bookTypes = variable_get('book_made_simple_auto_main_page', array());
-  $bookType = (array_key_exists($node->type, $bookTypes) ? $bookTypes[$node->type] : null);
-  $access = true;
-  if (null != $bookType && $bookType != "0" && $node->book['plid'] == 0) {
-    $access = false;
+  $config = config('book_made_simple.settings');
+  $bookTypes = $config->get('auto_main_page');
+  $bookType = (array_key_exists($node->type, $bookTypes) ? $bookTypes[$node->type] : NULL);
+  $access = TRUE;
+  if (NULL != $bookType && $bookType != "0" && $node->book['plid'] == 0) {
+    $access = FALSE;
   }
   return $access && user_access("show core Outline tab") && book_made_simple_creator_only_access($node);
 }
 
 /**
  * Returns access rights for book.
+ *
+ * @param Node $node
+ *   Node object.
  */
 function book_made_simple_is_reorder_access($node = NULL) {
+  $reorder_access = FALSE;
   if (isset($node->book) && $node->book['bid'] > 0) {
-    if (user_access('administer books')) return true;
-    if (! _book_outline_access($node) || ! user_access('show book reorder tab') || ! book_made_simple_creator_only_access($node)) {
-      return false;
+    if (user_access('administer books')) {
+      $reorder_access = TRUE;
     }
-    // Cheching permissions according to rules/
+    elseif (_book_outline_access($node) && user_access('show book reorder tab') && book_made_simple_creator_only_access($node)) {
+      $reorder_access = TRUE;
+    }
+    // Checking visibility according to rules.
     $book = $node->book;
-    $linkVisibilty = variable_get('book_made_simple_reorder_link', "0");
-    $allowed = true;
-    if ($linkVisibilty == "0") {
+    $reorder_link = config_get('book_made_simple.settings', 'reorder_link');
+    if (empty($reorder_link)) {
       $mainBook = $book;
       if ($book['nid'] != $book['bid']) {
         $mainBook = node_load($book['bid'])->book;
       }
-      $allowed = (count(book_toc($mainBook['bid'], 9999)) > 2);
+      $reorder_access = (count(book_toc($mainBook['bid'], 9999)) > 2);
     }
-    return $allowed;
   }
-  return false;
+  return $reorder_access;
 }
 
 /**
- * Creates shortuct to reorder book page from node object. 
+ * Creates shortuct to reorder book page from node object.
  */
 function book_made_simple_reorder($node) {
-  // TODO array('query' => array("destination" => "node/" . $node->nid)) needs to be an array of keys and values instead of a string.
-  drupal_goto("admin/content/book/" . $node->book['bid'], array('query' => array("destination" => "node/" . $node->nid)));
+  backdrop_goto("admin/content/book/" . $node->book['bid'], array(
+    'query' => array(
+      'destination' => "node/" . $node->nid,
+    ),
+  ));
 }
 
 /**
  * Implements hook_settings_form().
  */
 function book_made_simple_settings_form($form, &$form_state) {
+  $config = config('book_made_simple.settings');
+  $form['#config'] = 'book_made_simple.settings';
   $types = node_type_get_names();
-  $form['book_made_simple'] = array(
-    '#type' => 'fieldset',
+  $form['book_made_simple_content_types'] = array(
+    '#type' => 'details',
+    '#summary' => t('Content types'),
+    '#open' => TRUE,
     '#attributes' => array('class' => array('allowed-child')),
-    '#title' => t('Select node types that can be included in a book'),
-    '#collapsible' => TRUE,
-    '#collapsed' => FALSE,
-    '#description' => t('Check content-type that can be included as child in a book. This selection is overriden by selection in content-type settings.'),
   );
-  $form['book_made_simple']['book_made_simple_add_types'] = array(
+  $form['book_made_simple_content_types']['add_types'] = array(
+    '#title' => t('Content types that can be included in books'),
     '#type' => 'checkboxes',
     '#options' => $types,
-    '#multiple' => true,
-    '#default_value' => variable_get('book_made_simple_add_types', array()),
+    '#multiple' => TRUE,
+    '#default_value' => $config->get('add_types'),
+    '#description' => t('Select the content types that can be included as children in a book.'),
   );
-  $form['book_made_simple2'] = array(
-    '#type' => 'fieldset',
-    '#attributes' => array('class' => array('auto-main')),
-    '#title' => t('Select node types to auto-create main book page'),
-    '#collapsible' => TRUE,
-    '#collapsed' => FALSE,
-    '#description' => t('Check content-types if you want they will automatically be created as main page of a book.'),
-  );
-  $form['book_made_simple2']['book_made_simple_auto_main_page'] = array(
+  $form['book_made_simple_content_types']['auto_main_page'] = array(
+    '#title' => t('Auto-create main book page'),
     '#type' => 'checkboxes',
     '#options' => $types,
-    '#multiple' => true,
-    '#default_value' => variable_get('book_made_simple_auto_main_page', array()),
+    '#multiple' => TRUE,
+    '#default_value' => $config->get('auto_main_page'),
+    '#description' => t('Select content types to automatically be set as the main page of a book.'),
   );
-  $form['book_made_simple3'] = array(
-    '#type' => 'fieldset',
+  $form['book_made_simple_other'] = array(
+    '#type' => 'details',
     '#attributes' => array('class' => array('other-settings')),
-    '#title' => t('Other settings'),
-    '#collapsible' => TRUE,
-    '#collapsed' => FALSE,
+    '#summary' => t('Other settings'),
+    '#open' => TRUE,
   );
-  $form['book_made_simple3']['book_made_simple_limit_depth'] = array(
+  $form['book_made_simple_other']['limit_depth'] = array(
     '#type' => 'textfield',
     '#title' => t('Default limit book depth'),
-    '#default_value' => variable_get('book_made_simple_limit_depth', 99),
+    '#default_value' => $config->get('limit_depth'),
     '#description' => t('Maximum number of childs for a book'),
     '#maxlength' => 2,
     '#size' => 2,
   );
-  $form['book_made_simple3']['book_made_simple_admin_use_css'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Disable BMS settings layout'),
-    '#default_value' => variable_get('book_made_simple_admin_use_css', false),
-    '#description' => t('Check to disable BMS layout (content types as columns).'),
-  );
-  $form['book_made_simple3']['book_made_simple_admin_show_legend'] = array(
-    '#type' => 'checkbox',
-    '#title' => t('Print titles in fieldsets legend. Uncheck to prefer static text.'),
-    '#default_value' => variable_get('book_made_simple_admin_show_legend', true),
-    '#description' => t('In content-types settings, titles are shown in fieldsets legends in vertical-tabs. Some themes hide legend. In this cas, uncheck this to print titles as static text.'),
-  );
-  $form['book_made_simple3']['book_made_simple_hide_default_add_child'] = array(
+  $form['book_made_simple_other']['hide_default_add_child'] = array(
     '#type' => 'checkbox',
     '#title' => t('Hide default add child link'),
-    '#default_value' => variable_get('book_made_simple_hide_default_add_child', true),
+    '#default_value' => $config->get('hide_default_add_child'),
     '#description' => t('Check to hide default add child page link.'),
   );
-  $form['book_made_simple3']['book_made_simple_child_list_style'] = array(
+  $form['book_made_simple_other']['child_list_style'] = array(
     '#type' => 'radios',
     '#title' => t('Style of child list'),
     '#options' => array(
@@ -208,29 +175,26 @@ function book_made_simple_settings_form($form, &$form_state) {
       "LI" => t("Unordered list"),
       "THEME" => t("Themeable function"),
     ),
-    '#default_value' => variable_get('book_made_simple_child_list_style', "DDLIST"),
+    '#default_value' => $config->get('child_list_style'),
     '#description' => t('Choose the style of the child list.'),
   );
-  $form['book_made_simple3']['book_made_simple_child_list_style_position'] = array(
+  $form['book_made_simple_other']['child_list_style_position'] = array(
     '#type' => 'select',
     '#title' => t('Child list position in links area'),
     '#options' => array(
       "FIRST" => t("First"),
       "LAST" => t("Last"),
     ),
-    '#default_value' => variable_get('book_made_simple_child_list_style_position', "FIRST"),
+    '#default_value' => $config->get('child_list_style_position'),
     '#description' => t('Choose where to print child list in the links area'),
   );
-  $form['book_made_simple3']['book_made_simple_reorder_link'] = array(
-    '#type' => 'radios',
+  $form['book_made_simple_other']['reorder_link'] = array(
+    '#type' => 'checkbox',
     '#title' => t('Show reorder tab even if book is empty'),
-    '#options' => array(
-      "0" => t("No"),
-      "1" => t("Yes"),
-    ),
-    '#default_value' => variable_get('book_made_simple_reorder_link', "0"),
-    '#description' => t('Show reorder tab even if book is empty. A book is considered empty when it has less than 2 subpages. In this case, does reordering make sense ?'),
+    '#default_value' => $config->get('reorder_link'),
+    '#description' => t('A book is considered empty when it has less than 2 subpages. In this case, does reordering make sense ?'),
   );
+  $form['#attached']['css'][] = backdrop_get_path('module', 'book_made_simple') . '/css/book_made_simple.css';
   return system_settings_form($form);
 }
 
@@ -239,57 +203,58 @@ function book_made_simple_settings_form($form, &$form_state) {
  */
 function book_made_simple_form_alter(&$form, &$form_state, $form_id) {
   global $user;
+  $config = config('book_made_simple.settings');
   if (!empty($form['#node_edit_form'])) {
     $node = $form['#node'];
     $type = $form['type']['#value'];
-    // Not a book => Nothing to do
+    // Not a book => Nothing to do.
     if (! isset($node->book)) {
       return;
     }
     $book = $node->book;
     // 1 : Main page book. Verify if not forbidden
-    $isMainForbidden = (array_key_exists($type, variable_get('book_made_simple_forbid_main_page_creation', array())));
+    $isMainForbidden = (array_key_exists($type, $config->get('forbid_main_page_creation')));
     $isForbidden = ($isMainForbidden && $book['bid'] == 0);
-    if ($isMainForbidden   && $user->uid != 1) {
-      //$form['book']['bid']['#default_value'] = 0;
+    if ($isMainForbidden && $user->uid != 1) {
+      // $form['book']['bid']['#default_value'] = 0;
       $nid = empty($node->nid) ? 'new' : $node->nid;
       unset($form['book']['bid']['#options'][$nid]);
       $nid = isset($form['#node']->nid) ? $form['#node']->nid : '0';
       $form['#node']->book['original_bid'] = $nid;
     }
-    $isOnlyForBook = array_key_exists($type, variable_get("book_made_simple_only_on_books", array()));
+    $isOnlyForBook = array_key_exists($type, $config->get('only_on_books'));
     if ($isOnlyForBook) {
       if ($book['nid'] == "new" && ! empty($book["plid"]) && !book_made_simple_is_outline_access($form['#node'])) {
         $form = _book_made_simple_print_error("This type can't be created outside a book", $form['#id']);
         $form_state['process_input'] = FALSE;
         return;
       }
-      // Remove <none> from book list
+      // Remove <none> from book list.
       else {
       	unset($form['book']['bid']['#options'][0]);
       }
     }
     // 2 : Add child page : Verify if parent allowed
-    //if (arg(1) == "add" && array_key_exists("parent", $_GET)) {
+    // if (arg(1) == "add" && array_key_exists("parent", $_GET)) {
     if ($book['nid'] == "new" && ! empty($book["plid"]) && $book['plid'] > 0) {
       $parent = book_link_load($node->book["plid"]);
       if ($parent) {
         $parentNode = node_load($parent['nid']);
         $parentType = $parentNode->type;
-        $allowedChilds = variable_get('book_made_simple_for_type_' . $parentType, array());
+        $allowedChilds = $config->get('for_type_' . $parentType);
         if (count($allowedChilds) > 0 && ! in_array($type, $allowedChilds)) {
           $form = _book_made_simple_print_error("This type is not allowed as child for type $parentType", $form['#id']);
           $form_state['process_input'] = FALSE;
           return;
         }
         if (! book_made_simple_creator_only_access($parentNode)) {
-			$form = _book_made_simple_print_error("Only book creator can add child pages",$form['#id']);
-			$form_state['process_input'] = FALSE;
+          $form = _book_made_simple_print_error("Only book creator can add child pages", $form['#id']);
+          $form_state['process_input'] = FALSE;
           return;
         }
       }
     }
-    //3 : show/hide Outline section
+    // 3 : show/hide Outline section
     if (book_made_simple_is_outline_access($node)) {
       if (isset($node->nid) && book_made_simple_is_reorder_access($node)) {
         $form['book']['reorder'] = array(
@@ -302,120 +267,92 @@ function book_made_simple_form_alter(&$form, &$form_state, $form_id) {
     }
     else {
       $form['book']['#type'] = 'hidden';
-      //$form['book']['bid']['#default_value'] = 0;
     }
     return $form;
   }
   switch ($form["#id"]) {
     case "node-type-form": // $type . '_node_settings':
       $type = $form["#node_type"]->type;
-      $default = array_key_exists($type, variable_get('book_made_simple_auto_main_page', array()));
+      $default = array_key_exists($type, $config->get('auto_main_page'));
       $form['book_made_simple'] = array(
         '#type' => 'fieldset',
-        '#attributes' => array('class' => array('bms-fieldset')),
         '#title' => t('BookMadeSimple'),
         '#group' => 'additional_settings',
         '#collapsible' => TRUE,
         '#collapsed' => TRUE,
       );
-      $showLegend = variable_get("book_made_simple_admin_show_legend", true);
-      if (! $showLegend) {
-        $form['book_made_simple']['lib1'] = array(
-          '#type' => 'item',
-          '#title' => t('Select content-types allowed as child :'),
-        );
-      }
       $form['book_made_simple']['1'] = array(
-        '#attributes' => array('class' => array('allowed-child' . ($showLegend ? "with" : "without") . "legend")),
-        '#type' => 'fieldset',
-        '#title' => t('Select content-types allowed as child.'),
-        '#collapsible' => TRUE,
-        '#collapsed' => FALSE,
+        '#type' => 'details',
+        '#summary' => t('Content type settings'),
+        '#open' => FALSE,
       );
       $types = node_type_get_names();
-      $form['book_made_simple']['1']['book_made_simple_for_type'] = array(
+      $form['book_made_simple']['1']['for_type'] = array(
+        '#title' => t('Allowed child types'),
+        '#description' => t('Select content types which may be used as children.'),
         '#type' => 'checkboxes',
         '#options' => $types,
-        '#multiple' => true,
-        '#default_value' => variable_get('book_made_simple_for_type_' . $type, array()),
+        '#multiple' => TRUE,
+        '#default_value' => $config->get('for_type_' . $type),
       );
       $aa = array();
       unset($types[$type]);
       foreach ($types as $ctype => $name) {
-        $a = variable_get('book_made_simple_for_type_' . $ctype, array());
-        if (array_search($type, $a) !== FALSE) {
+        $a = $config->get('for_type_' . $ctype);
+        if (is_array($a) && array_search($type, $a) !== FALSE) {
           array_push($aa, $ctype);
         }
       }
-      if (! $showLegend) {
-        $form['book_made_simple']['lib2'] = array(
-          '#type' => 'item',
-          '#title' => t('Select content-types allowed as parent :'),
-        );
-      }
-      $form['book_made_simple']['2'] = array(
-        '#attributes' => array('class' => array('allowed-child' . ($showLegend ? "with" : "without") . "legend")),
-        '#title' => t('Select content-types allowed as parent'),
-        '#type' => 'fieldset',
-        '#collapsible' => TRUE,
-        '#collapsed' => FALSE,
-      );
-      $form['book_made_simple']['2']['book_made_simple_for_book'] = array(
+      $form['book_made_simple']['1']['for_book'] = array(
+        '#title' => t('Allowed parent types'),
+        '#description' => t('Select content types which may be used as parents.'),
         '#type' => 'checkboxes',
         '#options' => $types,
-        '#multiple' => true,
+        '#multiple' => TRUE,
         '#default_value' => $aa,
       );
-      if (! $showLegend) {
-        $form['book_made_simple']['lib3'] = array(
-          '#type' => 'item',
-          '#title' => t('Other settings :'),
-        );
-      }
       $form['book_made_simple']['3'] = array(
-        '#attributes' => array('class' => array('allowed-child' . ($showLegend ? "with" : "without") . "legend")),
-        '#title' => t('Other settings'),
-        '#type' => 'fieldset',
-        '#collapsible' => TRUE,
-        '#collapsed' => FALSE,
+        '#type' => 'details',
+        '#summary' => t('Other settings'),
+        '#open' => TRUE,
       );
-      $varTypes = variable_get('book_made_simple_auto_main_page', array());
+      $varTypes = $config->get('auto_main_page');
       $default = (array_key_exists($type, $varTypes) && $varTypes[$type] != "0");
-      $form['book_made_simple']['3']['book_made_simple_auto_main_page'] = array(
+      $form['book_made_simple']['3']['auto_main_page'] = array(
         '#attributes' => array('style' => 'float:none;clear:both'),
         '#type' => 'checkbox',
         '#title' => t('Auto create book main page'),
         '#default_value' => $default,
         '#description' => t('Checked will create a new book main page when adding.'),
       );
-      $varTypes = variable_get('book_made_simple_forbid_main_page_creation', array());
-      $default = (array_key_exists($type, $varTypes) && $varTypes[$type] != "0");
-      $form['book_made_simple']['3']['book_made_simple_forbid_main_page_creation'] = array(
+      $varTypes = $config->get('forbid_main_page_creation');
+      $default = (is_array($varTypes) && array_key_exists($type, $varTypes) && $varTypes[$type] != "0");
+      $form['book_made_simple']['3']['forbid_main_page_creation'] = array(
         '#type' => 'checkbox',
         '#title' => t('Forbid creation of book main page'),
         '#default_value' => $default,
         '#description' => t('Checked will prevent books from being manually created with this content type as main page type.'),
       );
-      $varTypes = variable_get('book_made_simple_only_on_books', array());
-      $default = (array_key_exists($type, $varTypes) && $varTypes[$type] != "0");
-      $form['book_made_simple']['3']['book_made_simple_only_on_books'] = array(
+      $varTypes = $config->get('only_on_books');
+      $default = (is_array($varTypes) && array_key_exists($type, $varTypes) && $varTypes[$type] != "0");
+      $form['book_made_simple']['3']['only_on_books'] = array(
         '#type' => 'checkbox',
         '#title' => t('Content type can only be created inside a book'),
         '#default_value' => $default,
         '#description' => t('Checked will prevent this content type be created outside a book.'),
       );
-		  $varTypes = variable_get('book_made_simple_only_creator', array());
-		  $default = (array_key_exists($type, $varTypes) && $varTypes[$type] != "0");
-		  $form['book_made_simple']['3']['book_made_simple_only_creator'] = array(
+		  $varTypes = $config->get('only_creator');
+		  $default = (is_array($varTypes) && array_key_exists($type, $varTypes) && $varTypes[$type] != "0");
+		  $form['book_made_simple']['3']['only_creator'] = array(
 		    '#type' => 'checkbox',
 		    '#title' => t('Only creator can add child pages'),
 		    '#default_value' => $default,
 		    '#description' => t('Checked will prevent other users than creator to add child pages.'),
 		  );
-      
-      $varTypes = variable_get('book_made_simple_add_types', array());
-      $default = (array_key_exists($type, $varTypes) && $varTypes[$type] != "0");
-      $form['book_made_simple']['3']['book_made_simple_add_types'] = array(
+
+      $varTypes = $config->get('add_types');
+      $default = (is_array($varTypes) && array_key_exists($type, $varTypes) && $varTypes[$type] != "0");
+      $form['book_made_simple']['3']['add_types'] = array(
         '#type' => 'checkbox',
         '#title' => t('Allow content type as child of default book.'),
         '#default_value' => $default,
@@ -424,94 +361,42 @@ function book_made_simple_form_alter(&$form, &$form_state, $form_id) {
       array_push($form['#submit'], "book_made_simple_form_submit");
       break;
   }
-  // endswitch $form_id
-} // endfunction book_made_simple_form_alter()
+}
 
 /**
- * Implements of hook_form_submit().
+ * Implements hook_form_submit().
  */
 function book_made_simple_form_submit($form, &$form_state) {
+  $config = config('book_made_simple.settings');
   $values = $form_state["values"];
-  $text = $values["book_made_simple_auto_main_page"];
   $type = $values["type"];
-  variable_del("book_made_simple_add_types_" . $type);
-  variable_del("book_made_simple_auto_main_page_" . $type);
-  $types = variable_get('book_made_simple_auto_main_page', array());
-  if ($text != "0") {
-    $types[$type] = $type;
+
+  $types = $config->get('auto_main_page');
+  $types[$type] = (!empty($values["auto_main_page"])) ? $type : 0;
+  $config->set('auto_main_page', $types);
+
+  $types = $config->get('only_on_books');
+  $types[$type] = (!empty($values["only_on_books"])) ? $type : 0;
+  $config->set('only_on_books', $types);
+
+  $types = $config->get('only_creator');
+  $types[$type] = (!empty($values["only_creator"])) ? $type : 0;
+  $config->set('only_creator', $types);
+
+  $types = $config->get('forbid_main_page_creation');
+  $types[$type] = (!empty($values["forbid_main_page_creation"])) ? $type : 0;
+  $config->set('forbid_main_page_creation', $types);
+
+  $types = $config->get('add_types');
+  $types[$type] = (!empty($values["add_types"])) ? $type : 0;
+  $config->set('add_types', $types);
+
+  $for_type = $values["for_type"];
+  if (is_array($for_type)) {
+    $config->set("for_type_" . $type, $for_type);
   }
-  else {
-    unset($types[$type]);
-  }
-  variable_set('book_made_simple_auto_main_page', $types);
-  $text = $values["book_made_simple_only_on_books"];
-  $type = $values["type"];
-  $types = variable_get('book_made_simple_only_on_books', array());
-  if ($text != "0") {
-    $types[$type] = $type;
-  }
-  else {
-    unset($types[$type]);
-  }
-  variable_set('book_made_simple_only_on_books', $types);
-  
-  $text = $values["book_made_simple_only_creator"];
-	$type = $values["type"];
-	$types = variable_get('book_made_simple_only_creator', array());
-	if ($text != "0")
-	{
-		$types[$type]= $type;
-	}
-	else {
-		unset($types[$type]);
-	}
-	variable_set('book_made_simple_only_creator', $types);  
-  
-  $text = $values["book_made_simple_forbid_main_page_creation"];
-  $type = $values["type"];
-  variable_del("book_made_simple_forbid_main_page_creation_" . $type);
-  $types = variable_get('book_made_simple_forbid_main_page_creation', array());
-  if ($text != "0") {
-    $types[$type] = $type;
-  }
-  else {
-    unset($types[$type]);
-  }
-  variable_set('book_made_simple_forbid_main_page_creation', $types);
-  $text = $values["book_made_simple_add_types"];
-  $types = variable_get('book_made_simple_add_types', array());
-  if ($text != "0") {
-    $types[$type] = $type;
-  }
-  else {
-    unset($types[$type]);
-  }
-  variable_set('book_made_simple_add_types', $types);
-  $text = $values["book_made_simple_for_type"];
-  if (count($text) == 0) {
-    variable_del("book_made_simple_for_type_" . $type);
-  }
-  $types = node_type_get_names();
-  $saved = $values["book_made_simple_for_book"];
-  $a2 = array();
-  foreach ($types as $ctype => $name) {
-    if ($ctype != $type) {
-      $a = variable_get('book_made_simple_for_type_' . $ctype, array());
-      $ind = array_search($type, $a);
-      if ($ind !== FALSE) {
-        unset($a[$ind]);
-      }
-      variable_set('book_made_simple_for_type_' . $ctype, $a);
-    }
-  }
-  foreach ($saved as $ctype => $name) {
-    if ($name != "0") {
-      $a = variable_get('book_made_simple_for_type_' . $ctype, array());
-      $a[$type] = $type;
-      variable_set('book_made_simple_for_type_' . $ctype, $a);
-    }
-  }
-  variable_del("book_made_simple_for_book_" . $type);
+
+  $config->save();
 }
 
 /**
@@ -527,22 +412,25 @@ function book_made_simple_form_submit($form, &$form_state) {
  * @return string
  *   Links of books to appear on node.
  */
-function book_made_simple_link($type, $node = null, $teaser = false) {
+function book_made_simple_link($type, $node = NULL, $teaser = FALSE) {
+  $config = config('book_made_simple.settings');
   $links = array();
   if (isset($node->in_preview)) return $links;
-  $max_depth = variable_get('book_made_simple_limit_depth', 99);
+  $max_depth = $config->get('limit_depth');
   if ($type == 'node' && !$teaser && isset($node->book["bid"]) && user_access('add content to books') && $node->status == 1 && (isset($node->book['depth']) ? $node->book['depth'] : 0) < $max_depth) {
 
-    if (! book_made_simple_creator_only_access($node)) {return $links;}
+    if (! book_made_simple_creator_only_access($node)) {
+      return $links;
+    }
 
     $html = "";
     $allowed_types = array();
-    // Search for content-type for this one.
-    $atypes = variable_get('book_made_simple_for_type_' . $node->type, array());
-    $style =  variable_get('book_made_simple_child_list_style', "DDLIST");
-    // No content-type, so print all
+    // Search for content type for this one.
+    $atypes = $config->get('for_type_' . $node->type);
+    $style = $config->get('child_list_style');
+    // No content type, so print all.
     if (count($atypes) == 0) {
-      $atypes = variable_get('book_made_simple_add_types', array());
+      $atypes = $config->get('add_types');
     }
     foreach ($atypes as $allowed_type => $allowed_name) {
       $atype  = node_type_get_type($allowed_name);
@@ -550,13 +438,13 @@ function book_made_simple_link($type, $node = null, $teaser = false) {
         $allowed_types[str_replace("_", "-", $atype->type)] = $atype->name;
       }
     }
-    // Alter list if desired
-    drupal_alter('book_made_simple_allowed_types_list', $allowedTypes); 
+    // Alter list if desired.
+    backdrop_alter('book_made_simple_allowed_types_list', $allowed_types);
     $book_link = $node->book;
     if (count($allowed_types) > 0) {
       asort($allowed_types, SORT_STRING);
       if ($style == "LI") {
-        foreach ($allowed_types as $type => $name ) {
+        foreach ($allowed_types as $type => $name) {
           $query = array("parent" => $node->book['mlid']);
           book_made_simple_og_manager($query);
           $links['book_made_simple_' . $type] = array(
@@ -569,13 +457,17 @@ function book_made_simple_link($type, $node = null, $teaser = false) {
       elseif ($style == "DDLIST") {
         $links['book_made_simple'] = array(
           'title' => "<span id='book_made_simple'>" . book_made_simple_add_child_book_content_types_ddlist($allowed_types, $node)  . "</span>",
-          'html' => true,
+          'html' => TRUE,
         );
       }
       else {
+        $variables = array(
+          'allowed_types' => $allowed_types,
+          'node' => $node,
+        );
         $links['book_made_simple'] = array(
-          'title' => theme('add_child_book_content_types', array('allowed_types' => $allowedTypes, 'node' => $node)),
-          'html' => true,
+          'title' => theme('add_child_book_content_types', $variables),
+          'html' => TRUE,
         );
       }
     }
@@ -584,31 +476,26 @@ function book_made_simple_link($type, $node = null, $teaser = false) {
 }
 
 /**
- *Add gids[] param in url for Organic Group managenement
- **/ 
+ *  Add gids[] param in url for Organic Group management.
+ **/
 function book_made_simple_og_manager(&$query) {
   if (module_exists('og') && module_exists('og_context')) {
-     $og_is_v1 = function_exists('og_get_group_ids'); 
-     $group_node = og_context_determine_context($og_is_v1 ? null : 'node');
-     if ($group_node) {
-         $nid = false;
-         if ($og_is_v1 && og_is_member($group_node)) {
-             $nid = $group_node->nid;
-         }
-         // V2 OG Version
-         if (!$og_is_v1 && og_is_member('node', $group_node)) {
-            $nid = $group_node; 
-         }
-        
-        if ($nid !== FALSE) {
-          if (is_array($query)) {
-            $query['gids[]'] =  $nid;
-          }
-          else {
-            $query .= '&gids[]=' . $nid;
-          }
+    $group_node = og_context_determine_context('node');
+    if ($group_node) {
+      $nid = FALSE;
+      if (og_is_member('node', $group_node)) {
+         $nid = $group_node;
+      }
+
+      if ($nid !== FALSE) {
+        if (is_array($query)) {
+          $query['gids[]'] = $nid;
         }
-     }
+        else {
+          $query .= '&gids[]=' . $nid;
+        }
+      }
+    }
   }
 }
 
@@ -619,28 +506,39 @@ function book_made_simple_theme() {
   return array(
     'add_child_book_content_types' => array(
       'variables' => array(
-        'allowed_types' => NULL,
-        "node" => null,
+        'allowed_types' => [],
+        'node' => NULL,
       ),
     ),
   );
 }
 
 /**
- * Themeable function to display allowed child types of book.
+ * Themeable function to display allowed child types of book. You can override
+ * this function easily to provide your own themed output.
  *
- * @param $allowedTypes
- *   Array of allowed child type.
- * @param $node
- *   Source node
+ * @param array $variables
+ *   Array of variables keyed with:
+ *   `allowed_types` - Array of allowed content types.
+ *   `node` - Fully instantiated node object.
+ *
  * @return
  *   Html code to display allowed child type
  */
-function theme_add_child_book_content_types($variables) {
-  $allowed_types = $variables['allowed_types'];
-  $node = $variables['node'];
-  // TODO Number of parameters in this theme funcion does not match number of parameters found in hook_theme.
-  return "";
+function theme_add_child_book_content_types($variables = []) {
+  $output = '';
+  $allowed_types = (!empty($variables['allowed_types'])) ? $variables['allowed_types'] : [];
+  $node = !empty($variables['node']) ? $variables['node'] : new Node();
+  if (!empty($node->book)) {
+    $output .= '<p>Add child: ';
+    foreach ($allowed_types as $type => $name) {
+      $query = array("parent" => $node->book['mlid']);
+      book_made_simple_og_manager($query);
+      $output .= l(t($name), "node/add/" . $type, array('query' => $query)) . " ";
+    }
+    $output .= '</p>';
+  }
+  return $output;
 }
 
 /**
@@ -654,19 +552,16 @@ function theme_add_child_book_content_types($variables) {
  * @return string
  *   Select list of allowed child types.
  */
-function book_made_simple_add_child_book_content_types_ddlist($allowed_types, &$node) {
-  $child_type = variable_get('book_child_type', 'book');
+function book_made_simple_add_child_book_content_types_ddlist($allowed_types = [], &$node = new Node()) {
+  $child_type = config_get('book.settings', 'book_child_type');
   $html = "<option value='" . str_replace('_', '-', $child_type) . "'>" . t("Add child page") . "</option>";
-  foreach ($allowed_types as $type => $name ) {
+  foreach ($allowed_types as $type => $name) {
     $html .= "<option value='" . $type . "'>" . t($name) . "</option>";
   }
-  $is_clean_url = variable_get('clean_url', 0);
+  $is_clean_url = config_get('system.core', 'clean_url');
   $url = url("node/add/");
-  $op = "&";
-  if ($is_clean_url) {
-    $op = "?";
-  }
-  $new_url =  $url . "\" + this.value + \"" . $op . "parent=" . $node->book["mlid"];
+  $op = ($is_clean_url) ? "?" : "&";
+  $new_url = $url . "\" + this.value + \"" . $op . "parent=" . $node->book["mlid"];
   book_made_simple_og_manager($new_url);
   return "<select onchange='location.href=\"" . $new_url . "\"'>$html</select>";
 }
@@ -675,20 +570,21 @@ function book_made_simple_add_child_book_content_types_ddlist($allowed_types, &$
  * Implements hook_node_insert().
  */
 function book_made_simple_node_insert($node) {
+  $config = config('book_made_simple.settings');
   if (isset($node->book) && empty($node->book["bid"])) {
     $type = $node->type;
-    $max_depth = variable_get('book_made_simple_limit_depth', 99);
-    $isDepthAllowed = true;
+    $max_depth = $config->get('limit_depth');
+    $isDepthAllowed = TRUE;
     if (array_key_exists('depth', $node->book)) {
       $isDepthAllowed = ($node->book['depth'] < $max_depth);
     }
     if ((user_access('add content to books') || user_access('administer book outlines')) &&
-    node_access('create', $type) &&   $isDepthAllowed) {
-      $bookTypes = variable_get('book_made_simple_auto_main_page', array());
-      $bookType = (array_key_exists($type, $bookTypes) ? $bookTypes[$type] : null);
-      $toCreate = false;
-      if (null != $bookType && $bookType != "0") {
-        $toCreate = true;
+    node_access('create', $type) && $isDepthAllowed) {
+      $bookTypes = $config->get('auto_main_page');
+      $bookType = (array_key_exists($type, $bookTypes) ? $bookTypes[$type] : NULL);
+      $toCreate = FALSE;
+      if (NULL != $bookType && $bookType != "0") {
+        $toCreate = TRUE;
       }
       if ($toCreate && ! isset($_GET['parent'])) {
         $node->book["bid"] = $node->nid;
@@ -705,8 +601,8 @@ function book_made_simple_node_insert($node) {
  * Implements hook_node_view().
  */
 function book_made_simple_node_view($node, $view_mode, $langcode = 1) {
-  if ((! empty($node->book["bid"])) &&   ($view_mode != "teaser")) {
-    $r = book_made_simple_link("node", $node, false);
+  if ((! empty($node->book["bid"])) && ($view_mode != "teaser")) {
+    $r = book_made_simple_link("node", $node, FALSE);
     $node->content['links']['book_made_simple'] = array(
       '#theme' => 'links__node__book_made_simple',
       '#links' => $r,
@@ -722,24 +618,32 @@ function book_made_simple_node_view_alter(&$build) {
   if ( ! array_key_exists("#node", $build)) {
     return;
   }
+  $config = config('book_made_simple.settings');
   $node = $build['#node'];
-  if ((! empty($node->book["bid"]) ) && $build['#view_mode'] != "teaser" && array_key_exists('links', $build)) {
+  if ((! empty($node->book["bid"])) && $build['#view_mode'] != "teaser" && array_key_exists('links', $build)) {
 
     if (array_key_exists("book_made_simple", $build['links'])) {
       $r = $build['links']["book_made_simple"];
       unset($build['links']["book_made_simple"]);
     }
-    if (array_key_exists("book", $build['links']) && variable_get('book_made_simple_hide_default_add_child', true)) {
+    if (array_key_exists("book", $build['links'])) {
+      if ($config->get('hide_default_add_child')) {
+        unset($build['links']['book']['#links']["book_add_child"]);
+      }
+      if (!book_made_simple_is_reorder_access($node)) {
+        unset($build['links']['book']['#links']["book_reorder"]);
+      }
+    }
+    if (array_key_exists("book", $build['links']) && $config->get('hide_default_add_child')) {
       unset($build['links']['book']['#links']["book_add_child"]);
     }
-    $position = variable_get("book_made_simple_child_list_style_position", "FIRST");
+    $position = $config->get('child_list_style_position');
     if ($position == "FIRST" && isset($r)) {
       array_unshift($build['links'], $r);
     }
     if ($position == "LAST" && isset($r)) {
       array_push($build['links'], $r);
     }
-
   }
 }
 
@@ -760,8 +664,8 @@ function book_made_simple_menu_alter(&$items) {
 function book_made_simple_theme_menu_item_link($link) {
   // Find out which theme function to dispatch to after preprocessing.
   $registry = theme_get_registry();
-  if (isset($link['element']['#link']['path']) &&   $link['element']['#link']['path'] == 'node/%/outline' && ! user_access("show core Outline tab")) {
-    return null;
+  if (isset($link['element']['#link']['path']) && $link['element']['#link']['path'] == 'node/%/outline' && ! user_access("show core Outline tab")) {
+    return NULL;
   }
   $function = $registry['BMS']['menu_local_task']['function'];
   if ($function) {
@@ -790,22 +694,29 @@ function _book_made_simple_print_error($message, $form_id) {
   return $form;
 }
 
+/**
+ *
+ */
 function book_made_simple_creator_only_access($node) {
 
   global $user;
-  if (user_access('administer books')) return true;
-  
+  if (user_access('administer books')) return TRUE;
+
   $main_node = $node;
-  if (! isset($node->nid) || ! isset($node->book)) {return true;} 
-    if ($node->nid != $node->book['bid']) {
-      if ( isset( $node->book['p1'] ) ) {
-         $main = book_link_load( $node->book['p1'] );
-         $main_node = node_load( $main['nid'] );    
-      }
+  if (! isset($node->nid) || ! isset($node->book)) {
+    return TRUE;
   }
-  $creator_only = array_key_exists($main_node->type, variable_get("book_made_simple_only_creator",array()));
-  if ($creator_only && $user->uid != 1 && $user->uid != $main_node->uid ) {return false;}
-  return true;
+  if ($node->nid != $node->book['bid']) {
+    if ( isset( $node->book['p1'] ) ) {
+       $main = book_link_load( $node->book['p1'] );
+       $main_node = node_load( $main['nid'] );
+    }
+  }
+  $creator_only = array_key_exists($main_node->type, $config->get('only_creator'));
+  if ($creator_only && $user->uid != 1 && $user->uid != $main_node->uid ) {
+    return FALSE;
+  }
+  return TRUE;
 
 }
 
@@ -817,9 +728,9 @@ function book_made_simple_new_book_object_alter(&$node) {
     $form = array("#node_edit_form" => "dummy_form", "#node" => $node);
     $form['type']['#value'] = $node->type;
     $form_state['process_input'] = TRUE;
-    book_made_simple_form_alter($form, $form_state,"");
-    if ($form_state['process_input'] == FALSE) {
-        $node = null;
-    }
+    book_made_simple_form_alter($form, $form_state, "");
+  if ($form_state['process_input'] == FALSE) {
+      $node = NULL;
+  }
 
 }

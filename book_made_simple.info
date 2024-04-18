@@ -1,7 +1,11 @@
 name = BookMadeSimple
 description = Automatic creation of a book and simple creation of child pages.
 package = Content
-files[] = book_made_simple.module
+backdrop = 1.x
+configure = admin/config/content/book_made_simple
+
+tags[] = Book
+tags[] = Content
+tags[] = Site Navigation
+tags[] = Structure
 dependencies[] = book
-core=7.x
-configure = admin/config/book_made_simple/config

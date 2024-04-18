@@ -9,25 +9,57 @@
  */
 function book_made_simple_install() {
 	db_query("UPDATE {system} SET weight = 10 WHERE name = 'book_made_simple'");
-}
-
-function book_made_simple_update_6013() {
-  $ret = array();
-
-  switch ($GLOBALS['db_type']) {
-    case 'mysql':
-    case 'mysqli':
-      $ret[] = update_sql("UPDATE {system} SET weight = 10 WHERE name = 'book_made_simple'");
-      break;
-    }
-
-  return $ret;
+	$config = config('book_made_simple.settings');
+	$content_types = node_type_get_types();
+	foreach ($content_types as $type) {
+		$config->set('for_type_' . $type->type, array());
+	}
+	$config->save();
 }
 
 /**
- * Implements hook_uninstall().
+ * Implements hook_update_last_removed().
+ *
+ * @return int
  */
-function book_made_simple_uninstall() {
-	variable_del('book_made_simple_auto_main_page');
-	variable_del('book_made_simple_add_types');
+function book_made_simple_update_last_removed() {
+  return 6013;
+}
+
+/**
+ * Upgrade variables to configuration and remove unneeded variables.
+ */
+function book_made_simple_update_1000() {
+	$config = config('book_made_simple.settings');
+	$config->set('auto_main_page', update_variable_get('book_made_simple_auto_main_page', array()));
+	$config->set('limit_depth', update_variable_get('book_made_simple_limit_depth', 99));
+	$config->set('hide_default_add_child', update_variable_get('book_made_simple_hide_default_add_child', TRUE));
+  $config->set('child_list_style', update_variable_get('book_made_simple_child_list_style', "DDLIST"));
+  $config->set('child_list_style_position', update_variable_get('book_made_simple_child_list_style_position', "FIRST"));
+  $config->set('reorder_link', intval(update_variable_get('book_made_simple_reorder_link'), 0));
+  $config->set('forbid_main_page_creation', update_variable_get('book_made_simple_forbid_main_page_creation', array()));
+	$config->set('only_on_books', update_variable_get("book_made_simple_only_on_books", array()));
+	$config->set('only_creator', update_variable_get('book_made_simple_only_creator', array()));
+	$config->set('add_types', update_variable_get('book_made_simple_add_types', array()));
+	$content_types = node_type_get_types();
+  foreach ($content_types as $type) {
+		$config->set('for_type_' . $type->type, update_variable_get('book_made_simple_for_type_' . $type->type, array()));
+
+		// Various outdated variables from prior versions can just be deleted.
+    update_variable_del("book_made_simple_for_book_" . $type->type);
+    update_variable_del("book_made_simple_add_types_" . $type->type);
+    update_variable_del("book_made_simple_auto_main_page_" . $type->type);
+		update_variable_del("book_made_simple_forbid_main_page_creation_" . $type->type);
+  }
+	$config->save();
+	update_variable_del('book_made_simple_auto_main_page');
+	update_variable_del('book_made_simple_limit_depth');
+	update_variable_del('book_made_simple_hide_default_add_child');
+	update_variable_del('book_made_simple_child_list_style');
+	update_variable_del('book_made_simple_child_list_style_position');
+	update_variable_del('book_made_simple_reorder_link');
+	update_variable_del('book_made_simple_forbid_main_page_creation');
+	update_variable_del('book_made_simple_only_on_books');
+	update_variable_del('book_made_simple_only_creator');
+	update_variable_del('book_made_simple_add_types');
 }

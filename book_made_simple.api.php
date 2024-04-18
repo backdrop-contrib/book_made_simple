@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Hooks provided by the entity API.
+ * Hooks provided by Book Made Simple.
  */
 
 /**
@@ -18,8 +18,8 @@
  * @param string $allowed_types
  *   List of allowed content types that can be books.
  */
-function mymodule_book_made_simple_allowed_types_list_alter(&$allowedTypes) {
-  // Example rempoves thee content type page from list.
+function hook_book_made_simple_allowed_types_list_alter(&$allowedTypes) {
+  // Remove the 'page' content type from the list of allowed types.
   unset($allowed_types['page']);
 }
 

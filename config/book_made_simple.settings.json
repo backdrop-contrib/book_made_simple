@@ -1,0 +1,13 @@
+{
+  "_config_name": "book_made_simple.settings",
+  "add_types": {},
+  "auto_main_page": {},
+  "forbid_main_page_creation": {},
+  "only_creator": {},
+  "only_on_books": {},
+  "limit_depth": "99",
+  "hide_default_add_child": 1,
+  "child_list_style": "DDLIST",
+  "child_list_style_position": "FIRST",
+  "reorder_link": 0
+}
