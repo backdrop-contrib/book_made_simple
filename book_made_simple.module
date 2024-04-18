@@ -698,11 +698,11 @@ function _book_made_simple_print_error($message, $form_id) {
  *
  */
 function book_made_simple_creator_only_access($node) {
-
   global $user;
-  if (user_access('administer books')) return TRUE;
-
-  $main_node = $node;
+  $config = config('book_made_simple.settings');
+  if (user_access('administer books')) {
+    return TRUE;
+  }
   if (! isset($node->nid) || ! isset($node->book)) {
     return TRUE;
   }
