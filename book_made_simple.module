@@ -64,7 +64,9 @@ function book_made_simple_menu() {
  * Access callback for book outline tab.
  */
 function book_made_simple_is_outline_access($node = NULL) {
-  if (user_access('administer books')) return TRUE;
+  if (user_access('administer books')) {
+    return TRUE;
+  }
   if (isset($node->nid) && ! (user_access('add content to books') || user_access('administer book outlines'))) {
     return FALSE;
   }
@@ -85,6 +87,7 @@ function book_made_simple_is_outline_access($node = NULL) {
  *   Node object.
  */
 function book_made_simple_is_reorder_access($node = NULL) {
+  // @todo: Use backdrop_static here to avoid multiple calls to the same function.
   $reorder_access = FALSE;
   if (isset($node->book) && $node->book['bid'] > 0) {
     if (user_access('administer books')) {
@@ -96,7 +99,7 @@ function book_made_simple_is_reorder_access($node = NULL) {
     // Checking visibility according to rules.
     $book = $node->book;
     $reorder_link = config_get('book_made_simple.settings', 'reorder_link');
-    if (empty($reorder_link)) {
+    if ($reorder_access && empty($reorder_link)) {
       $mainBook = $book;
       if ($book['nid'] != $book['bid']) {
         $mainBook = node_load($book['bid'])->book;
