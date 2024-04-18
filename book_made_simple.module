@@ -266,7 +266,7 @@ function book_made_simple_form_alter(&$form, &$form_state, $form_id) {
       }
     }
     else {
-      $form['book']['#type'] = 'hidden';
+      $form['book']['#access'] = FALSE;
     }
     return $form;
   }
