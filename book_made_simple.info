@@ -1,3 +1,4 @@
+type = module
 name = BookMadeSimple
 description = Automatic creation of a book and simple creation of child pages.
 package = Content
