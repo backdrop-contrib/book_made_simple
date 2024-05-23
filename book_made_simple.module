@@ -432,7 +432,7 @@ function book_made_simple_link($type, $node = NULL, $teaser = FALSE) {
     $atypes = $config->get('for_type_' . $node->type);
     $style = $config->get('child_list_style');
     // No content type, so print all.
-    if (count($atypes) == 0) {
+    if (empty($atypes)) {
       $atypes = $config->get('add_types');
     }
     foreach ($atypes as $allowed_type => $allowed_name) {
