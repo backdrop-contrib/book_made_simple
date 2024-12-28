@@ -67,7 +67,7 @@ function book_made_simple_is_outline_access($node = NULL) {
   if (user_access('administer books')) {
     return TRUE;
   }
-  if (isset($node->nid) && ! (user_access('add content to books') || user_access('administer book outlines'))) {
+  if (isset($node->nid) && !(user_access('add content to books') || user_access('administer book outlines'))) {
     return FALSE;
   }
   $config = config('book_made_simple.settings');
@@ -211,13 +211,12 @@ function book_made_simple_form_alter(&$form, &$form_state, $form_id) {
     $node = $form['#node'];
     $type = $form['type']['#value'];
     // Not a book => Nothing to do.
-    if (! isset($node->book)) {
+    if (!isset($node->book)) {
       return;
     }
     $book = $node->book;
     // 1 : Main page book. Verify if not forbidden
     $isMainForbidden = (array_key_exists($type, $config->get('forbid_main_page_creation')));
-    $isForbidden = ($isMainForbidden && $book['bid'] == 0);
     if ($isMainForbidden && $user->uid != 1) {
       // $form['book']['bid']['#default_value'] = 0;
       $nid = empty($node->nid) ? 'new' : $node->nid;
@@ -227,7 +226,7 @@ function book_made_simple_form_alter(&$form, &$form_state, $form_id) {
     }
     $isOnlyForBook = array_key_exists($type, $config->get('only_on_books'));
     if ($isOnlyForBook) {
-      if ($book['nid'] == "new" && ! empty($book["plid"]) && !book_made_simple_is_outline_access($form['#node'])) {
+      if ($book['nid'] == "new" && !empty($book["plid"]) && !book_made_simple_is_outline_access($form['#node'])) {
         $form = _book_made_simple_print_error("This type can't be created outside a book", $form['#id']);
         $form_state['process_input'] = FALSE;
         return;
@@ -239,18 +238,18 @@ function book_made_simple_form_alter(&$form, &$form_state, $form_id) {
     }
     // 2 : Add child page : Verify if parent allowed
     // if (arg(1) == "add" && array_key_exists("parent", $_GET)) {
-    if ($book['nid'] == "new" && ! empty($book["plid"]) && $book['plid'] > 0) {
+    if ($book['nid'] == "new" && !empty($book["plid"]) && $book['plid'] > 0) {
       $parent = book_link_load($node->book["plid"]);
       if ($parent) {
         $parentNode = node_load($parent['nid']);
         $parentType = $parentNode->type;
         $allowedChilds = $config->get('for_type_' . $parentType);
-        if (count($allowedChilds) > 0 && ! in_array($type, $allowedChilds)) {
+        if (count($allowedChilds) > 0 && !in_array($type, $allowedChilds)) {
           $form = _book_made_simple_print_error("This type is not allowed as child for type $parentType", $form['#id']);
           $form_state['process_input'] = FALSE;
           return;
         }
-        if (! book_made_simple_creator_only_access($parentNode)) {
+        if (!book_made_simple_creator_only_access($parentNode)) {
           $form = _book_made_simple_print_error("Only book creator can add child pages", $form['#id']);
           $form_state['process_input'] = FALSE;
           return;
@@ -422,11 +421,10 @@ function book_made_simple_link($type, $node = NULL, $teaser = FALSE) {
   $max_depth = $config->get('limit_depth');
   if ($type == 'node' && !$teaser && isset($node->book["bid"]) && user_access('add content to books') && $node->status == 1 && (isset($node->book['depth']) ? $node->book['depth'] : 0) < $max_depth) {
 
-    if (! book_made_simple_creator_only_access($node)) {
+    if (!book_made_simple_creator_only_access($node)) {
       return $links;
     }
 
-    $html = "";
     $allowed_types = array();
     // Search for content type for this one.
     $atypes = $config->get('for_type_' . $node->type);
@@ -443,7 +441,6 @@ function book_made_simple_link($type, $node = NULL, $teaser = FALSE) {
     }
     // Alter list if desired.
     backdrop_alter('book_made_simple_allowed_types_list', $allowed_types);
-    $book_link = $node->book;
     if (count($allowed_types) > 0) {
       asort($allowed_types, SORT_STRING);
       if ($style == "LI") {
@@ -589,7 +586,7 @@ function book_made_simple_node_insert($node) {
       if (NULL != $bookType && $bookType != "0") {
         $toCreate = TRUE;
       }
-      if ($toCreate && ! isset($_GET['parent'])) {
+      if ($toCreate && !isset($_GET['parent'])) {
         $node->book["bid"] = $node->nid;
         $node->book['nid'] = $node->nid;
         $node->book['module'] = 'book';
@@ -604,7 +601,7 @@ function book_made_simple_node_insert($node) {
  * Implements hook_node_view().
  */
 function book_made_simple_node_view($node, $view_mode, $langcode = 1) {
-  if ((! empty($node->book["bid"])) && ($view_mode != "teaser")) {
+  if ((!empty($node->book["bid"])) && ($view_mode != "teaser")) {
     $r = book_made_simple_link("node", $node, FALSE);
     $node->content['links']['book_made_simple'] = array(
       '#theme' => 'links__node__book_made_simple',
@@ -618,12 +615,12 @@ function book_made_simple_node_view($node, $view_mode, $langcode = 1) {
  * Implements hook_node_view_alter().
  */
 function book_made_simple_node_view_alter(&$build) {
-  if ( ! array_key_exists("#node", $build)) {
+  if (!array_key_exists("#node", $build)) {
     return;
   }
   $config = config('book_made_simple.settings');
   $node = $build['#node'];
-  if ((! empty($node->book["bid"])) && $build['#view_mode'] != "teaser" && array_key_exists('links', $build)) {
+  if ((!empty($node->book["bid"])) && $build['#view_mode'] != "teaser" && array_key_exists('links', $build)) {
 
     if (array_key_exists("book_made_simple", $build['links'])) {
       $r = $build['links']["book_made_simple"];
@@ -667,7 +664,7 @@ function book_made_simple_menu_alter(&$items) {
 function book_made_simple_theme_menu_item_link($link) {
   // Find out which theme function to dispatch to after preprocessing.
   $registry = theme_get_registry();
-  if (isset($link['element']['#link']['path']) && $link['element']['#link']['path'] == 'node/%/outline' && ! user_access("show core Outline tab")) {
+  if (isset($link['element']['#link']['path']) && $link['element']['#link']['path'] == 'node/%/outline' && !user_access("show core Outline tab")) {
     return NULL;
   }
   $function = $registry['BMS']['menu_local_task']['function'];
@@ -706,7 +703,7 @@ function book_made_simple_creator_only_access($node) {
   if (user_access('administer books')) {
     return TRUE;
   }
-  if (! isset($node->nid) || ! isset($node->book)) {
+  if (!isset($node->nid) || !isset($node->book)) {
     return TRUE;
   }
   if ($node->nid != $node->book['bid']) {
@@ -720,7 +717,6 @@ function book_made_simple_creator_only_access($node) {
     return FALSE;
   }
   return TRUE;
-
 }
 
 /**
@@ -728,12 +724,11 @@ function book_made_simple_creator_only_access($node) {
  * @param unknown $node
  */
 function book_made_simple_new_book_object_alter(&$node) {
-    $form = array("#node_edit_form" => "dummy_form", "#node" => $node);
-    $form['type']['#value'] = $node->type;
-    $form_state['process_input'] = TRUE;
-    book_made_simple_form_alter($form, $form_state, "");
+  $form = array("#node_edit_form" => "dummy_form", "#node" => $node);
+  $form['type']['#value'] = $node->type;
+  $form_state['process_input'] = TRUE;
+  book_made_simple_form_alter($form, $form_state, "");
   if ($form_state['process_input'] == FALSE) {
       $node = NULL;
   }
-
 }
