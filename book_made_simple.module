@@ -549,13 +549,13 @@ function theme_add_child_book_content_types($variables = []) {
  *
  * @param array $allowed_types
  *   Allowed content types.
- * @param object $node
+ * @param Node $node
  *   Fully instantiated node object.
  *
  * @return string
  *   Select list of allowed child types.
  */
-function book_made_simple_add_child_book_content_types_ddlist($allowed_types = [], &$node = new Node()) {
+function book_made_simple_add_child_book_content_types_ddlist(array $allowed_types, Node &$node) {
   $child_type = config_get('book.settings', 'book_child_type');
   $html = "<option value='" . str_replace('_', '-', $child_type) . "'>" . t("Add child page") . "</option>";
   foreach ($allowed_types as $type => $name) {
