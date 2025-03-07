@@ -18,15 +18,6 @@ function book_made_simple_install() {
 }
 
 /**
- * Implements hook_update_last_removed().
- *
- * @return int
- */
-function book_made_simple_update_last_removed() {
-  return 6013;
-}
-
-/**
  * Upgrade variables to configuration and remove unneeded variables.
  */
 function book_made_simple_update_1000() {
